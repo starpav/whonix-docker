@@ -1,0 +1,60 @@
+# Whonix-Docker Gateway Tor Configuration
+
+# Основные настройки
+User tor
+DataDirectory /var/lib/tor-persistent
+PidFile /var/run/tor/tor.pid
+RunAsDaemon 0
+Log notice stdout
+
+# SOCKS порт (для проверки подключения)
+SocksPort 0.0.0.0:9050
+SocksPolicy accept 10.152.152.0/24
+SocksPolicy reject *
+
+# TransparentProxy для TCP
+TransPort 0.0.0.0:9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort
+TransPolicy accept 10.152.152.0/24
+TransPolicy reject *
+
+# DNS порт для резолвинга через Tor
+DNSPort 0.0.0.0:5353 IsolateClientAddr IsolateClientProtocol IsolateDestAddr
+DNSPolicy accept 10.152.152.0/24
+DNSPolicy reject *
+
+# Безопасность
+SafeLogging 1
+TestSocks 0
+WarnUnsafeSocks 1
+
+# Изоляция потоков
+IsolateClientAddr 1
+IsolateSOCKSAuth 1
+IsolateClientProtocol 1
+IsolateDestPort 1
+IsolateDestAddr 1
+
+# Отключение ненужных функций
+ControlPort 0
+HiddenServiceDir /var/lib/tor/hidden_service/
+HiddenServicePort 0
+
+# Оптимизация
+CircuitBuildTimeout 10
+LearnCircuitBuildTimeout 0
+MaxCircuitDirtiness 600
+MaxClientCircuitsPending 128
+CircuitStreamTimeout 300
+
+# Дополнительная анонимность
+ClientOnly 1
+ExitPolicy reject *:*
+ExcludeNodes {RU},{UA},{BY},{KZ},{CN}
+ExcludeExitNodes {RU},{UA},{BY},{KZ},{CN}
+StrictNodes 1
+
+# Защита от атак
+FascistFirewall 0
+FirewallPorts 80,443
+ReachableAddresses *:80,*:443
+ClientPreferIPv6ORPort 0

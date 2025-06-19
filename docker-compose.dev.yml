@@ -1,0 +1,23 @@
+version: '3.8'
+
+# Расширение для режима разработки
+# Использование: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  workstation:
+    volumes:
+      # Монтируем директорию для разработки
+      - ./workspace:/workspace:rw
+      # Docker socket для управления контейнерами (опционально, небезопасно!)
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DEV_MODE=true
+    cap_add:
+      - SYS_PTRACE  # для отладчиков
+
+networks:
+  # Подключаем dev_net к внешней сети Docker для доступа к другим контейнерам
+  dev_net:
+    internal: false
+    external:
+      name: bridge  # или имя вашей кастомной сети для микросервисов
