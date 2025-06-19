@@ -11,9 +11,9 @@ RUN apk add --no-cache \
     shadow \
     tini
 
-# Создание пользователя tor
-RUN addgroup -g 100 tor && \
-    adduser -D -u 100 -G tor -s /sbin/nologin tor
+# Create a tor group and add the existing tor user to it
+RUN addgroup -g 101 tor && \
+    usermod -G tor tor
 
 # Копирование конфигураций
 COPY torrc /etc/tor/torrc

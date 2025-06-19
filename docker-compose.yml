@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   gateway:
     build: ./gateway
@@ -25,7 +23,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:mode=1777,nodev,nosuid,noexec,size=50m
-      - /var/lib/tor:mode=1777,uid=100,gid=100,size=50m
+      - /var/lib/tor:mode=1777,uid=100,gid=101,size=50m
       - /run:mode=1777,nodev,nosuid,noexec,size=50m
     volumes:
       - tor-data:/var/lib/tor-persistent:rw
@@ -37,7 +35,9 @@ services:
       retries: 3
 
   workstation:
-    build: ./workstation
+    build: 
+      context: .
+      dockerfile: workstation/Dockerfile
     container_name: whonix-workstation
     hostname: workstation
     networks:
@@ -48,11 +48,14 @@ services:
       - ALL
     cap_add:
       - NET_RAW  # для ping в локальной сети
+      - NET_ADMIN  # для изменения маршрутов
+      - SETUID   # для sudo
+      - SETGID   # для sudo
+      - DAC_OVERRIDE  # для изменения файлов
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
       - net.ipv6.conf.default.disable_ipv6=1
     security_opt:
-      - no-new-privileges:true
       - apparmor:unconfined  # можно настроить профиль позже
     dns:
       - 10.152.152.10

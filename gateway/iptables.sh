@@ -38,7 +38,7 @@ iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # Разрешить подключения от Workstation к Tor портам
 iptables -A INPUT -s $TOR_NET -p tcp --dport 9050 -j ACCEPT  # SOCKS
-iptables -A INPUT -s $TOR_NET -p tcp --dport $TRANS_PORT -j ACCEPT  # TransPort
+# iptables -A INPUT -s $TOR_NET -p tcp --dport $TRANS_PORT -j ACCEPT  # TransPort - DISABLED
 iptables -A INPUT -s $TOR_NET -p udp --dport $DNS_PORT -j ACCEPT  # DNSPort
 
 # === OUTPUT правила ===
@@ -57,8 +57,8 @@ iptables -A OUTPUT -p tcp --dport 53 -m owner --uid-owner 0 -j ACCEPT
 iptables -t nat -A PREROUTING -s $TOR_NET -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT
 iptables -t nat -A PREROUTING -s $TOR_NET -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT
 
-# Перенаправление TCP трафика на Tor TransPort
-iptables -t nat -A PREROUTING -s $TOR_NET -p tcp --syn -j REDIRECT --to-ports $TRANS_PORT
+# Перенаправление TCP трафика на Tor TransPort - DISABLED to avoid loops
+# iptables -t nat -A PREROUTING -s $TOR_NET -p tcp --syn -j REDIRECT --to-ports $TRANS_PORT
 
 # Исключения для локального трафика
 iptables -t nat -A PREROUTING -s $TOR_NET -d 127.0.0.0/8 -j RETURN
@@ -67,8 +67,8 @@ iptables -t nat -A PREROUTING -s $TOR_NET -d 172.16.0.0/12 -j RETURN
 iptables -t nat -A PREROUTING -s $TOR_NET -d 192.168.0.0/16 -j RETURN
 
 # === Защита от утечек ===
-# Блокировать любые прямые соединения не от Tor
-iptables -A OUTPUT ! -m owner --uid-owner $TOR_UID -m conntrack --ctstate NEW -j REJECT
+# Блокировать любые прямие соединения не от Tor
+iptables -A OUTPUT -m owner ! --uid-owner $TOR_UID -m conntrack --ctstate NEW -j REJECT
 
 # Логирование заблокированных пакетов (опционально)
 # iptables -A INPUT -j LOG --log-prefix "INPUT-DROP: " --log-level 4

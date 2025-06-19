@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     traceroute \
     tcpdump \
     nmap \
+    iproute2 \
     # Инструменты разработки
     git \
     vim \
@@ -41,14 +42,16 @@ RUN useradd -m -s /bin/bash -u 1000 user && \
     echo "user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Копирование конфигураций
-COPY resolv.conf /etc/resolv.conf.tor
-COPY routing.sh /usr/local/bin/routing.sh
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY workstation/resolv.conf /etc/resolv.conf.tor
+COPY workstation/routing.sh /usr/local/bin/routing.sh
+COPY workstation/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY tests /tests
 
 # Установка прав
 RUN chmod 644 /etc/resolv.conf.tor && \
     chmod 755 /usr/local/bin/routing.sh && \
-    chmod 755 /usr/local/bin/entrypoint.sh
+    chmod 755 /usr/local/bin/entrypoint.sh && \
+    chmod 755 /tests/*.sh
 
 # Создание рабочей директории
 RUN mkdir -p /workspace && chown user:user /workspace

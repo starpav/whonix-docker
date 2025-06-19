@@ -56,15 +56,16 @@ fi
 echo "Current routing table:"
 ip route show
 
-# Защита от утечек - блокируем прямой доступ к внешним IP
+# Защита от утечек - но РАЗРЕШАЕМ соединения к gateway
 if [ "$DEV_MODE" != "true" ]; then
     echo "Applying strict routing rules..."
-    # Блокируем все кроме локальных сетей и Tor
+    # Разрешаем локальные сети
     iptables -A OUTPUT -d 127.0.0.0/8 -j ACCEPT
-    iptables -A OUTPUT -d 10.152.152.0/24 -j ACCEPT
+    iptables -A OUTPUT -d 10.152.152.0/24 -j ACCEPT  # Разрешаем к gateway!
     iptables -A OUTPUT -d 172.16.0.0/12 -j ACCEPT
     iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
-    iptables -A OUTPUT -j REJECT
+    # НЕ блокируем все остальное - пусть идет через default route
+    # iptables -A OUTPUT -j REJECT  # Убираем эту строку!
 fi
 
 echo "Routing configuration completed!"

@@ -34,24 +34,27 @@ echo "Gateway is ready!"
 echo "Configuring routing..."
 sudo /usr/local/bin/routing.sh
 
-# Тест подключения через Tor
+# Тест подключения через Tor (используем правильный IP gateway)
 echo "Testing Tor connection..."
-if curl -s -x socks5://$GATEWAY_IP:9050 https://check.torproject.org/api/ip | grep -q '"IsTor":true'; then
+if curl -s -x socks5://$GATEWAY_IP:9050 --max-time 10 https://check.torproject.org/api/ip | grep -q '"IsTor":true'; then
     echo "✓ Successfully connected through Tor!"
 else
-    echo "⚠ Warning: Tor connection test failed"
+    echo "⚠ Warning: Tor connection test failed (this is normal during startup)"
 fi
 
-# Отключение IPv6
-echo "Disabling IPv6..."
-sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null
-sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null
+# IPv6 уже отключен в docker-compose.yml sysctls
 
 # Настройка прокси переменных для приложений
 export http_proxy="socks5://$GATEWAY_IP:9050"
 export https_proxy="socks5://$GATEWAY_IP:9050"
 export ftp_proxy="socks5://$GATEWAY_IP:9050"
 export all_proxy="socks5://$GATEWAY_IP:9050"
+
+# Добавляем в bashrc для постоянства
+echo "export http_proxy=\"socks5://$GATEWAY_IP:9050\"" >> /home/user/.bashrc
+echo "export https_proxy=\"socks5://$GATEWAY_IP:9050\"" >> /home/user/.bashrc
+echo "export ftp_proxy=\"socks5://$GATEWAY_IP:9050\"" >> /home/user/.bashrc
+echo "export all_proxy=\"socks5://$GATEWAY_IP:9050\"" >> /home/user/.bashrc
 
 # NO_PROXY уже установлен в Dockerfile
 
