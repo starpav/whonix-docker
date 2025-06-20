@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y \
     traceroute \
     tcpdump \
     nmap \
-    iproute2 \
     # Инструменты разработки
     git \
     vim \
@@ -33,6 +32,7 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     htop \
     tmux \
+    bc \
     # Безопасность
     iptables \
     && rm -rf /var/lib/apt/lists/*
@@ -42,22 +42,28 @@ RUN useradd -m -s /bin/bash -u 1000 user && \
     echo "user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Копирование конфигураций
-COPY workstation/resolv.conf /etc/resolv.conf.tor
-COPY workstation/routing.sh /usr/local/bin/routing.sh
-COPY workstation/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY tests /tests
+COPY resolv.conf /etc/resolv.conf.tor
+COPY routing.sh /usr/local/bin/routing.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Установка прав
+# Установка прав (ВАЖНО: выполняемые файлы)
 RUN chmod 644 /etc/resolv.conf.tor && \
     chmod 755 /usr/local/bin/routing.sh && \
-    chmod 755 /usr/local/bin/entrypoint.sh && \
-    chmod 755 /tests/*.sh
+    chmod 755 /usr/local/bin/entrypoint.sh
 
 # Создание рабочей директории
 RUN mkdir -p /workspace && chown user:user /workspace
 
-# Переключение на пользователя
-USER user
+# Создание директории для тестов
+RUN mkdir -p /tests
+
+# Копируем тесты (предполагается что Dockerfile запускается из корня проекта с флагом -f workstation/Dockerfile)
+COPY tests/check-leaks.sh /tests/check-leaks.sh
+COPY tests/test-connectivity.sh /tests/test-connectivity.sh
+RUN chmod 755 /tests/*.sh
+
+# Переключение на пользователя (НО entrypoint должен запускаться как root!)
+# USER user
 WORKDIR /workspace
 
 # Установка переменных окружения
@@ -67,6 +73,6 @@ ENV NO_PROXY="localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 # Порты для разработки (опционально)
 EXPOSE 3000 8000 8080
 
-# Точка входа
+# Точка входа (запускается как root для iptables, потом переключается на user)
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["/bin/bash"]
+CMD ["su", "-", "user"]

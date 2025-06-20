@@ -2,26 +2,12 @@
 set -e
 
 # Whonix-Docker Workstation routing configuration
-# Настройка умной маршрутизации: локальные сети напрямую, остальное через Tor
+# Настройка строгой маршрутизации: только через Tor Gateway
 
 GATEWAY_IP="${TOR_GATEWAY:-10.152.152.10}"
 DEV_MODE="${DEV_MODE:-false}"
 
 echo "Configuring Workstation routing..."
-
-# Функция для добавления маршрута
-add_route() {
-    local network=$1
-    local gateway=$2
-    local interface=$3
-    
-    if ip route show | grep -q "$network"; then
-        echo "Route for $network already exists"
-    else
-        echo "Adding route: $network via $gateway dev $interface"
-        ip route add $network via $gateway dev $interface 2>/dev/null || true
-    fi
-}
 
 # Получение интерфейсов
 TOR_IFACE=$(ip route | grep "10.152.152.0/24" | awk '{print $3}')
@@ -32,40 +18,85 @@ if [ -z "$TOR_IFACE" ]; then
     exit 1
 fi
 
-# Установка шлюза по умолчанию через Tor Gateway
-echo "Setting default gateway to $GATEWAY_IP..."
+# Очистка существующих правил iptables
+echo "Clearing existing iptables rules..."
+sudo iptables -F OUTPUT 2>/dev/null || true
+sudo iptables -F INPUT 2>/dev/null || true
+
+# Установка политик по умолчанию
+sudo iptables -P OUTPUT DROP
+sudo iptables -P INPUT ACCEPT  # INPUT можно оставить открытым
+
+# Разрешить loopback
+sudo iptables -A OUTPUT -o lo -j ACCEPT
+
+# Разрешить подключения к Tor Gateway
+sudo iptables -A OUTPUT -d $GATEWAY_IP -j ACCEPT
+
+# Разрешить локальные сети (RFC 1918)
+sudo iptables -A OUTPUT -d 127.0.0.0/8 -j ACCEPT
+sudo iptables -A OUTPUT -d 10.0.0.0/8 -j ACCEPT
+sudo iptables -A OUTPUT -d 172.16.0.0/12 -j ACCEPT
+sudo iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
+
+# В режиме разработки разрешаем больше локального трафика
+if [ "$DEV_MODE" = "true" ] && [ -n "$DEV_IFACE" ]; then
+    echo "Development mode enabled. Allowing additional local traffic..."
+    
+    # Разрешаем трафик по dev интерфейсу
+    sudo iptables -A OUTPUT -o $DEV_IFACE -j ACCEPT
+fi
+
+# СТРОГО блокируем всё остальное
+sudo iptables -A OUTPUT -j REJECT --reject-with icmp-net-unreachable
+
+# Установка маршрутов
+echo "Setting up routing table..."
+
+# Удаляем старые маршруты
 ip route del default 2>/dev/null || true
+
+# Устанавливаем шлюз по умолчанию через Tor Gateway
 ip route add default via $GATEWAY_IP dev $TOR_IFACE
 
-# В режиме разработки настраиваем маршруты для локальных Docker сетей
+# В режиме разработки добавляем маршруты для локальных сетей
 if [ "$DEV_MODE" = "true" ] && [ -n "$DEV_IFACE" ]; then
-    echo "Development mode enabled. Configuring local routes..."
+    echo "Adding development routes..."
     
     # Получаем gateway для dev сети
-    DEV_GATEWAY=$(ip route | grep "172.30.0.0/24" | grep -oE 'src [0-9.]+' | awk '{print $2}')
+    DEV_GATEWAY=$(ip route | grep "172.30.0.0/24" | grep -oE 'via [0-9.]+' | awk '{print $2}' || echo "")
     
     if [ -n "$DEV_GATEWAY" ]; then
-        # Docker сети обычно в диапазоне 172.16.0.0/12
-        add_route "172.16.0.0/12" "$DEV_GATEWAY" "$DEV_IFACE"
-        # Добавляем также другие приватные сети если нужно
-        # add_route "192.168.0.0/16" "$DEV_GATEWAY" "$DEV_IFACE"
+        # Добавляем маршрут для Docker сетей через dev интерфейс
+        ip route add 172.16.0.0/12 via $DEV_GATEWAY dev $DEV_IFACE 2>/dev/null || true
     fi
 fi
 
-# Проверка маршрутов
-echo "Current routing table:"
+# Показываем результат
+echo ""
+echo "=== Current iptables OUTPUT rules ==="
+sudo iptables -L OUTPUT -v -n
+
+echo ""
+echo "=== Current routing table ==="
 ip route show
 
-# Защита от утечек - но РАЗРЕШАЕМ соединения к gateway
-if [ "$DEV_MODE" != "true" ]; then
-    echo "Applying strict routing rules..."
-    # Разрешаем локальные сети
-    iptables -A OUTPUT -d 127.0.0.0/8 -j ACCEPT
-    iptables -A OUTPUT -d 10.152.152.0/24 -j ACCEPT  # Разрешаем к gateway!
-    iptables -A OUTPUT -d 172.16.0.0/12 -j ACCEPT
-    iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
-    # НЕ блокируем все остальное - пусть идет через default route
-    # iptables -A OUTPUT -j REJECT  # Убираем эту строку!
+echo ""
+echo "=== Testing connectivity ==="
+# Быстрый тест - должен пройти через Tor
+if curl -s --max-time 5 https://check.torproject.org/api/ip | grep -q '"IsTor":true'; then
+    echo "✓ Tor connection working"
+else
+    echo "✗ Tor connection failed"
 fi
 
+# Тест прямого подключения - должен провалиться
+if timeout 3 curl -s --max-time 3 http://8.8.8.8 >/dev/null 2>&1; then
+    echo "✗ WARNING: Direct internet access still possible!"
+    echo "iptables rules may not be working correctly"
+else
+    echo "✓ Direct internet access blocked"
+fi
+
+echo ""
 echo "Routing configuration completed!"
