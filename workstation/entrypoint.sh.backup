@@ -27,15 +27,10 @@ while ! nc -z $GATEWAY_IP 9050 2>/dev/null; do
 done
 echo "Gateway is ready!"
 
-# Отключение IPv6 (проверяем, не отключено ли уже)
-echo "Checking IPv6 status..."
-if [ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" != "1" ]; then
-    echo "Disabling IPv6..."
-    sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1 || echo "Note: IPv6 already disabled via Docker"
-    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null 2>&1 || true
-else
-    echo "IPv6 already disabled ✓"
-fi
+# Отключение IPv6 ПЕРЕД настройкой маршрутизации
+echo "Disabling IPv6..."
+sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null
+sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null
 
 # Настройка маршрутизации и iptables (КРИТИЧЕСКИ ВАЖНО)
 echo "Configuring routing and firewall..."

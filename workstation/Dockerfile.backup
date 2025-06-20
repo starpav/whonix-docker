@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y \
     wget \
     netcat-openbsd \
     net-tools \
-    iproute2 \
     iputils-ping \
     dnsutils \
     traceroute \
@@ -34,7 +33,6 @@ RUN apt-get update && apt-get install -y \
     htop \
     tmux \
     bc \
-    procps \
     # Безопасность
     iptables \
     && rm -rf /var/lib/apt/lists/*
