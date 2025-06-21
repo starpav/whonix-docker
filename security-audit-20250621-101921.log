@@ -1,0 +1,5 @@
+
+[0;34m### NETWORK ISOLATION ###[0m
+
+Checking Tor connectivity... [0;32m✓ PASS[0m
+Checking Direct internet blocked... [0;31m✗ FAIL[0m
