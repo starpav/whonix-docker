@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: ./gateway
+    container_name: whonix-gateway
+    hostname: gateway
+    networks:
+      external_net:
+      tor_net:
+        ipv4_address: 10.152.152.10
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SETUID
+      - SETGID
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,nodev,nosuid,noexec,size=50m
+      - /var/lib/tor:mode=1777,uid=100,gid=101,size=50m
+      - /run:mode=1777,nodev,nosuid,noexec,size=50m
+    volumes:
+      - tor-data:/var/lib/tor-persistent:rw
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-x", "socks5://127.0.0.1:9050", "-s", "https://check.torproject.org/api/ip"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  workstation:
+    build: 
+      context: .
+      dockerfile: workstation/Dockerfile
+    container_name: whonix-workstation
+    hostname: workstation
+    networks:
+      tor_net:
+        ipv4_address: 10.152.152.11
+      # dev_net ПОЛНОСТЬЮ УДАЛЕН!
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+    security_opt:
+      - apparmor:unconfined
+    dns:
+      - 10.152.152.10
+    dns_search: []
+    depends_on:
+      - gateway
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    environment:
+      - TOR_GATEWAY=10.152.152.10
+      - NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+networks:
+  external_net:
+    driver: bridge
+    internal: false
+
+  tor_net:
+    driver: bridge
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.152.152.0/24
+
+  # dev_net ПОЛНОСТЬЮ УДАЛЕН!
+
+volumes:
+  tor-data:
+    driver: local
